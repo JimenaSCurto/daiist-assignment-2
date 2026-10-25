@@ -8,9 +8,17 @@ __pycache__/
 # Datasets downloaded from Roboflow at train time -- never commit these
 datasets/
 data/
+# datasets/ and runs/ may be symlinks into *.nosync folders (kept out of iCloud sync)
+/datasets
+/runs
+*.nosync/
 
 # Ultralytics training output. Your real weights belong in weights/, committed.
 runs/
+
+# Pretrained checkpoints Ultralytics downloads into the repo root (yolo11n.pt etc.).
+# Only the root is ignored: weights/*.pt and the weights/ artifacts stay committed.
+/*.pt
 
 # Never commit your API key
 .env

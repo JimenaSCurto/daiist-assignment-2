@@ -1,0 +1,116 @@
+{
+  "source": {
+    "workspace": "dangerzone-6iqvs",
+    "project": "smoke_fire-idefg",
+    "version": 5,
+    "format": "yolov11",
+    "url": "https://universe.roboflow.com/dangerzone-6iqvs/smoke_fire-idefg/dataset/5",
+    "licence": "CC BY 4.0"
+  },
+  "class_names": [
+    "fire",
+    "smoke"
+  ],
+  "positive_classes": {
+    "fire": [
+      "fire"
+    ],
+    "smoke": [
+      "smoke"
+    ]
+  },
+  "excluded_from_score": [],
+  "positive_definition": "frame contains at least one fire or smoke ground-truth box",
+  "splits": {
+    "train": {
+      "images": 10296,
+      "background_images": 1689,
+      "background_pct": 16.404429,
+      "instances": {
+        "fire": 866,
+        "smoke": 8798
+      },
+      "frames": {
+        "fire_only": 309,
+        "smoke_only": 8097,
+        "both": 201,
+        "neither": 1689
+      },
+      "positive_prevalence": 0.835956
+    },
+    "val": {
+      "images": 2573,
+      "background_images": 411,
+      "background_pct": 15.973572,
+      "instances": {
+        "fire": 227,
+        "smoke": 2177
+      },
+      "frames": {
+        "fire_only": 80,
+        "smoke_only": 2037,
+        "both": 45,
+        "neither": 411
+      },
+      "positive_prevalence": 0.840264
+    },
+    "test": {
+      "images": 2570,
+      "background_images": 413,
+      "background_pct": 16.070039,
+      "instances": {
+        "fire": 194,
+        "smoke": 2176
+      },
+      "frames": {
+        "fire_only": 70,
+        "smoke_only": 2045,
+        "both": 42,
+        "neither": 413
+      },
+      "positive_prevalence": 0.8393
+    }
+  },
+  "box_area_relative": {
+    "fire": {
+      "all": {
+        "n": 1287,
+        "median": 0.037126,
+        "q1": 0.016704,
+        "q3": 0.075171,
+        "iqr": 0.058467,
+        "small_share": 0.131313
+      },
+      "test": {
+        "n": 194,
+        "median": 0.036721,
+        "q1": 0.013174,
+        "q3": 0.072378,
+        "iqr": 0.059204,
+        "small_share": 0.175258
+      }
+    },
+    "smoke": {
+      "all": {
+        "n": 13151,
+        "median": 0.375156,
+        "q1": 0.190525,
+        "q3": 0.552197,
+        "iqr": 0.361672,
+        "small_share": 0.006311
+      },
+      "test": {
+        "n": 2176,
+        "median": 0.35563,
+        "q1": 0.169523,
+        "q3": 0.475581,
+        "iqr": 0.306058,
+        "small_share": 0.005055
+      }
+    }
+  },
+  "small_box_threshold": 0.01,
+  "low_count_threshold": 100,
+  "low_count_classes_test": [],
+  "test_prevalence": 0.8393
+}
