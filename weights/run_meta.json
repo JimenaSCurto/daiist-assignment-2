@@ -1,25 +1,26 @@
 {
   "model": "yolo11n.pt",
   "settings": {
-    "epochs": 1,
+    "epochs": 30,
     "imgsz": 640,
     "patience": 10,
     "batch": 16,
-    "fraction": 0.05,
+    "fraction": 1.0,
     "seed": 0
   },
-  "epochs_completed": 1,
+  "resumed": true,
+  "epochs_completed": 30,
   "stopped_early": false,
-  "best_epoch": 1,
+  "best_epoch": 30,
   "best_val": {
-    "precision": 0.00237,
-    "recall": 0.37484,
-    "mAP50": 0.00221,
-    "mAP50-95": 0.00048
+    "precision": 0.84401,
+    "recall": 0.78916,
+    "mAP50": 0.83984,
+    "mAP50-95": 0.57321
   },
-  "train_images_used": 515,
-  "wall_clock_seconds": 191.4,
-  "seconds_per_epoch": 191.4,
+  "train_images_used": 10296,
+  "wall_clock_seconds": 65888.7,
+  "seconds_per_epoch": 2196.3,
   "environment": {
     "device": "mps",
     "device_name": "Apple MPS (Apple M4)",
@@ -27,7 +28,7 @@
     "python": "3.12.12",
     "torch": "2.11.0",
     "ultralytics": "8.4.173",
-    "started_at": "2026-10-25T14:59:47+00:00"
+    "started_at": "2026-10-26T08:36:51+00:00"
   },
   "dataset": {
     "workspace": "dangerzone-6iqvs",
@@ -40,9 +41,9 @@
   "ultralytics_args": {
     "task": "detect",
     "mode": "train",
-    "model": "yolo11n.pt",
+    "model": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs/finetune/weights/last.pt",
     "data": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/datasets/smoke_fire-idefg-5/data_abs.yaml",
-    "epochs": 1,
+    "epochs": 30,
     "time": null,
     "patience": 10,
     "batch": 16,
@@ -65,9 +66,9 @@
     "rect": false,
     "cos_lr": false,
     "close_mosaic": 10,
-    "resume": false,
+    "resume": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs/finetune/weights/last.pt",
     "amp": true,
-    "fraction": 0.05,
+    "fraction": 1.0,
     "profile": false,
     "freeze": null,
     "multi_scale": 0.0,
@@ -153,5 +154,5 @@
     "tracker": "tracktrack.yaml",
     "save_dir": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs.nosync/finetune"
   },
-  "last_eval_only_run": "2026-10-25T15:07:17+00:00"
+  "training_sessions": 2
 }

@@ -6,26 +6,26 @@
   "positive_class": "frame contains fire or smoke (any ground-truth box of either class)",
   "excluded_from_score": [],
   "overall": {
-    "mAP50": 0.002438,
-    "mAP50-95": 0.000506,
-    "precision": 0.002464,
-    "recall": 0.397322
+    "mAP50": 0.824046,
+    "mAP50-95": 0.57362,
+    "precision": 0.89709,
+    "recall": 0.757869
   },
   "per_class": [
     {
       "class": "fire",
-      "precision": 6.7e-05,
-      "recall": 0.170103,
-      "AP50": 1.9e-05,
-      "AP50-95": 4e-06,
+      "precision": 0.804149,
+      "recall": 0.57732,
+      "AP50": 0.669373,
+      "AP50-95": 0.342564,
       "test_instances": 194
     },
     {
       "class": "smoke",
-      "precision": 0.00486,
-      "recall": 0.62454,
-      "AP50": 0.004856,
-      "AP50-95": 0.001008,
+      "precision": 0.990032,
+      "recall": 0.938419,
+      "AP50": 0.978718,
+      "AP50-95": 0.804675,
       "test_instances": 2176
     }
   ],
@@ -47,18 +47,18 @@
     "conf": 0.25,
     "matrix": [
       [
+        130,
         0,
-        0,
-        194
+        64
       ],
       [
-        0,
-        0,
-        2176
+        1,
+        2078,
+        97
       ],
       [
-        0,
-        0,
+        89,
+        93,
         0
       ]
     ]

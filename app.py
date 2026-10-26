@@ -324,7 +324,7 @@ def render_frame(image, dets, lo, hi):
     s = max(s_fire, s_smoke)
     img = image.convert("RGB").copy()
     draw = ImageDraw.Draw(img)
-    width = max(2, round(min(img.size) / 250))
+    width = max(3, round(min(img.size) / 160))
     try:
         font = ImageFont.load_default(size=max(12, round(min(img.size) / 40)))
     except TypeError:

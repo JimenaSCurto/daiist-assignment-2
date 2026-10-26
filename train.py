@@ -93,6 +93,7 @@ PATIENCE = _env("PATIENCE", 10, int)
 BATCH = _env("BATCH", 16, int)
 FRACTION = _env("FRACTION", 1.0, float)
 SEED = _env("SEED", 0, int)
+WORKERS = _env("WORKERS", 8, int)  # dataloader processes; lower it if RAM/swap runs out
 EVAL_ONLY = os.environ.get("EVAL_ONLY", "0").strip() == "1"
 RESUME = os.environ.get("RESUME", "0").strip() == "1"
 
@@ -456,7 +457,7 @@ def finetune(data_yaml, env, source):
         log("finetune", f"resuming from {LAST_CKPT.relative_to(ROOT)} (settings come from the checkpoint)")
         model = YOLO(str(LAST_CKPT))
         try:
-            model.train(resume=True, device=env["device"])
+            model.train(resume=True, device=env["device"], workers=WORKERS)
         except AssertionError as error:  # Ultralytics asserts when the run already finished
             raise SystemExit(f"Nothing to resume: {error}\nThat run finished. Use EVAL_ONLY=1 to redo the "
                              "evaluation, or drop RESUME to train again from scratch.") from error
@@ -465,7 +466,7 @@ def finetune(data_yaml, env, source):
                         f"patience={PATIENCE}, fraction={FRACTION}, seed={SEED}")
         model = YOLO(MODEL)
         model.train(data=str(data_yaml), epochs=EPOCHS, imgsz=IMGSZ, patience=PATIENCE, batch=BATCH,
-                    fraction=FRACTION, seed=SEED, deterministic=True, device=env["device"],
+                    fraction=FRACTION, seed=SEED, deterministic=True, device=env["device"], workers=WORKERS,
                     project=str(RUNS), name="finetune", exist_ok=True, plots=True)
     wall = time.time() - started
     trainer = model.trainer
@@ -477,7 +478,7 @@ def finetune(data_yaml, env, source):
     results.columns = [c.strip() for c in results.columns]
     epochs_done = int(results["epoch"].max()) if "epoch" in results else trainer.epoch + 1
     if RESUME and "time" in results:  # the resumed process only saw part of the training time
-        wall = float(results["time"].max())
+        wall = training_seconds(results)
     best_row = results.loc[results["metrics/mAP50-95(B)"].idxmax()]
     args = {k: v if isinstance(v, (int, float, str, bool, type(None))) else str(v)
             for k, v in vars(trainer.args).items()}
@@ -504,6 +505,14 @@ def finetune(data_yaml, env, source):
     }
     save_json("run_meta.json", meta)
     return meta
+
+
+def training_seconds(results):
+    """Total training time from results.csv. Its `time` column restarts at 0 in each resumed
+    session, so add up the last value of every session."""
+    t = results["time"].to_numpy(dtype=float)
+    session_ends = np.r_[t[1:] < t[:-1], True]
+    return float(t[session_ends].sum())
 
 
 # ---------------------------------------------------------------------------
@@ -1019,13 +1028,15 @@ def plot_cost_curve(dec):
     ts, cs = dec["t_star"], pol["model_alone"]["cost_per_1000"]
     ax.axvline(ts, color=ACCENT, lw=0.8, alpha=0.5)
     ax.plot([ts], [cs], "o", color=ACCENT)
-    ax.annotate(f"t* = {ts:.3f}\n{fmt_eur(cs)} / 1,000", (ts, cs), xytext=(8, 10),
+    ax.annotate(f"t* = {ts:.3f}\n{fmt_eur(cs)} / 1,000", (ts, cs), xytext=(8, 22),
                 textcoords="offset points", fontsize=8, color=INK)
     tw = pol["three_way"]["cost_per_1000"]
     ax.plot([(lo + hi) / 2], [tw], "D", color=REVIEW_C, ms=6)
     ax.annotate(f"three-way ({lo:.2f}, {hi:.2f})\n{fmt_eur(tw)} / 1,000", ((lo + hi) / 2, tw),
-                xytext=(8, -26), textcoords="offset points", fontsize=8, color=INK)
+                xytext=(10, -4), textcoords="offset points", fontsize=8, color=INK, va="top")
     ax.set_yscale("log")
+    shown = [c.min(), tw, pol["review_all"]["cost_per_1000"]]
+    ax.set_ylim(min(v for v in shown if v > 0) / 2, max(c.max(), pol["do_nothing"]["cost_per_1000"]) * 1.5)
     ax.set_xlim(0, 1)
     ax.set_xlabel("threshold t on frame score s", fontsize=9)
     ax.set_ylabel("expected cost per 1,000 frames (EUR, log)", fontsize=9)
@@ -1159,8 +1170,10 @@ def block_training(meta):
         ["Seed", s.get("seed")],
         ["Optimizer / lr0 / momentum", f"{a.get('optimizer')} / {a.get('lr0')} / {a.get('momentum')}"],
         ["Augmentation (mosaic / fliplr / hsv_v)", f"{a.get('mosaic')} / {a.get('fliplr')} / {a.get('hsv_v')}"],
-        ["Wall-clock", f"{meta.get('wall_clock_seconds', 0) / 60:.1f} min "
-                       f"({meta.get('seconds_per_epoch', 0):.0f} s/epoch)"],
+        ["Training time", f"{meta.get('wall_clock_seconds', 0) / 3600:.1f} h "
+                          f"({meta.get('seconds_per_epoch', 0) / 60:.1f} min/epoch"
+                          + (f", {meta['training_sessions']} sessions: interrupted and resumed"
+                             if meta.get("training_sessions", 1) > 1 else "") + ")"],
         ["Best val (P / R / mAP50 / mAP50-95)",
          " / ".join(num(meta.get("best_val", {}).get(k)) for k in ("precision", "recall", "mAP50", "mAP50-95"))],
         ["Started", env.get("started_at")],

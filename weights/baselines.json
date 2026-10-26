@@ -5,18 +5,18 @@
     "negative": 413
   },
   "finetuned": {
-    "mAP50": 0.002438,
-    "mAP50-95": 0.000506,
-    "operating_point": "model alone at t*=0.105",
+    "mAP50": 0.824046,
+    "mAP50-95": 0.57362,
+    "operating_point": "model alone at t*=0.625",
     "frame_confusion": {
-      "TP": 0,
-      "FN": 2157,
-      "FP": 0,
-      "TN": 413
+      "TP": 2007,
+      "FN": 150,
+      "FP": 3,
+      "TN": 410
     },
-    "frame_recall": 0.0,
-    "frame_fpr": 0.0,
-    "cost_per_1000": 50000.0
+    "frame_recall": 0.930459,
+    "frame_fpr": 0.007264,
+    "cost_per_1000": 4705.119095
   },
   "coco_zero_shot": {
     "mAP50": 0.0,

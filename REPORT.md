@@ -70,19 +70,19 @@ or dispatch automatically). A frame is **positive** if it contains fire **or** s
 | Device | Apple MPS (Apple M4) (`mps`) |
 | Platform | macOS-15.6-arm64-arm-64bit |
 | Versions | python 3.12.12, torch 2.11.0, ultralytics 8.4.173 |
-| Epochs (requested / completed) | 1 / 1 |
-| Best epoch | 1 |
+| Epochs (requested / completed) | 30 / 30 |
+| Best epoch | 30 |
 | Image size | 640 |
 | Batch | 16 |
 | Patience | 10 |
-| Train fraction | 0.05 |
-| Train images used | 515 |
+| Train fraction | 1.0 |
+| Train images used | 10296 |
 | Seed | 0 |
 | Optimizer / lr0 / momentum | AdamW / 0.001667 / 0.937 |
 | Augmentation (mosaic / fliplr / hsv_v) | 1.0 / 0.5 / 0.4 |
-| Wall-clock | 3.2 min (191 s/epoch) |
-| Best val (P / R / mAP50 / mAP50-95) | 0.002 / 0.375 / 0.002 / 0.000 |
-| Started | 2026-10-25T14:59:47+00:00 |
+| Training time | 18.3 h (36.6 min/epoch, 2 sessions: interrupted and resumed) |
+| Best val (P / R / mAP50 / mAP50-95) | 0.844 / 0.789 / 0.840 / 0.573 |
+| Started | 2026-10-26T08:36:51+00:00 |
 
 Full settings: `weights/run_meta.json`.
 <!-- /AUTO:training -->
@@ -95,12 +95,12 @@ Full settings: `weights/run_meta.json`.
 <!-- AUTO:results -->
 **Positive class:** frame contains fire or smoke (any ground-truth box of either class).
 
-**Overall (test):** mAP50 = 0.002, mAP50-95 = 0.001.
+**Overall (test):** mAP50 = 0.824, mAP50-95 = 0.574.
 
 | Class | Precision | Recall | AP50 | AP50-95 | Test instances |
 |---|---|---|---|---|---|
-| fire | 0.000 | 0.170 | 0.000 | 0.000 | 194 |
-| smoke | 0.005 | 0.625 | 0.005 | 0.001 | 2,176 |
+| fire | 0.804 | 0.577 | 0.669 | 0.343 | 194 |
+| smoke | 0.990 | 0.938 | 0.979 | 0.805 | 2,176 |
 
 *precision/recall at the single confidence that maximises mean F1 (Ultralytics convention); AP is threshold-free.*
 
@@ -110,7 +110,7 @@ Full settings: `weights/run_meta.json`.
 
 | Model / policy | mAP50 | Frame recall | Frame FPR | Cost / 1,000 frames | TP/FN/FP/TN (test) |
 |---|---|---|---|---|---|
-| Finetuned (model alone at t*) | 0.002 | 0.0% | 0.0% | €50,000.00 | 0/2157/0/413 |
+| Finetuned (model alone at t*) | 0.824 | 93.0% | 0.7% | €4,705.12 | 2007/150/3/410 |
 | COCO zero-shot | 0.000 | 0.0% | 0.0% | €50,000.00 | 0/2157/0/413 |
 | Predict nothing | 0.000 | 0.0% | 0.0% | €50,000.00 | 0/2157/0/413 |
 | Always alarm | — | 100.0% | 100.0% | €150,000.00 | 2157/0/413/0 |
@@ -149,9 +149,9 @@ Full settings: `weights/run_meta.json`.
 
 ![Cost vs threshold](weights/cost_curve.png)
 
-**Model alone:** t* = 0.105, expected cost €50,000.00 per 1,000 frames (bootstrap 95% CI €50,000.00–€50,000.00); frame recall at t* 0.0% (95% CI 0.0%–0.0%), FPR 0.00%.
+**Model alone:** t* = 0.625, expected cost €4,705.12 per 1,000 frames (bootstrap 95% CI €3,524.18–€6,104.04); frame recall at t* 93.0% (95% CI 92.0%–94.1%), FPR 0.73%.
 
-**Three-way at feasible (lo, hi):** €49,658.52 per 1,000 (95% CI €49,468.57–€49,828.72). Bootstrap: 1000 stratified resamples of the test set, thresholds held fixed.
+**Three-way at feasible (lo, hi):** €2,686.54 per 1,000 (95% CI €2,248.77–€3,122.98). Bootstrap: 1000 stratified resamples of the test set, thresholds held fixed.
 
 Test prevalence 83.9% vs assumed base rate 0.001: all costs reweight the test-measured TPR/FPR to the base rate.
 
@@ -159,44 +159,40 @@ Test prevalence 83.9% vs assumed base rate 0.001: all costs reweight the test-me
 
 | cost_fn (EUR) | t* | Model alone / 1k | Unconstrained (lo, hi) | Feasible (lo, hi) | Feasible / 1k | Recommended |
 |---|---|---|---|---|---|---|
-| 5000 (×0.10) | 0.105 | €5,000.00 | (0.01, 0.11) | (0.05, 0.11) | €4,993.93 | three-way |
-| 8891.4 (×0.18) | 0.105 | €8,891.40 | (0.01, 0.11) | (0.05, 0.11) | €8,866.48 | three-way |
-| 15811.4 (×0.32) | 0.105 | €15,811.39 | (0.01, 0.11) | (0.04, 0.11) | €15,740.94 | three-way |
-| 28117.1 (×0.56) | 0.105 | €28,117.07 | (0.00, 0.11) | (0.04, 0.11) | €27,949.07 | three-way |
-| 50000 (×1.00) | 0.105 | €50,000.00 | (0.00, 0.11) | (0.04, 0.11) | €49,658.52 | three-way |
-| 88914 (×1.78) | 0.105 | €88,913.97 | (0.00, 0.11) | (0.04, 0.11) | €88,263.99 | three-way |
-| 158114 (×3.16) | 0.013 | €133,533.16 | (0.00, 0.11) | (0.01, 0.01) | €146,308.44 | model alone |
-| 281171 (×5.62) | 0.010 | €146,818.55 | (0.00, 0.11) | (0.01, 0.01) | €147,107.14 | model alone |
-| 500000 (×10.00) | 0.010 | €147,731.61 | (0.00, 0.11) | (0.01, 0.01) | €148,527.45 | model alone |
+| 5000 (×0.10) | 0.772 | €667.15 | (0.32, 0.78) | (0.32, 0.78) | €452.19 | three-way |
+| 8891.4 (×0.18) | 0.772 | €1,082.09 | (0.25, 0.78) | (0.32, 0.78) | €645.40 | three-way |
+| 15811.4 (×0.32) | 0.772 | €1,819.97 | (0.12, 0.78) | (0.32, 0.78) | €989.00 | three-way |
+| 28117.1 (×0.56) | 0.772 | €3,132.12 | (0.09, 0.78) | (0.32, 0.78) | €1,600.00 | three-way |
+| 50000 (×1.00) | 0.625 | €4,705.12 | (0.08, 0.78) | (0.32, 0.78) | €2,686.54 | three-way |
+| 88914 (×1.78) | 0.469 | €6,771.37 | (0.00, 0.78) | (0.32, 0.78) | €4,618.71 | three-way |
+| 158114 (×3.16) | 0.469 | €10,236.18 | (0.00, 0.78) | (0.32, 0.78) | €8,054.64 | three-way |
+| 281171 (×5.62) | 0.255 | €15,764.38 | (0.00, 0.78) | (0.25, 0.63) | €13,670.25 | three-way |
+| 500000 (×10.00) | 0.255 | €25,097.85 | (0.00, 0.78) | (0.25, 0.63) | €23,303.00 | three-way |
 
 **Sensitivity to `base_rate`:**
 
 | base_rate | t* | Model alone / 1k | Unconstrained (lo, hi) | Feasible (lo, hi) | Feasible / 1k | Recommended |
 |---|---|---|---|---|---|---|
-| 0.0001 (×0.10) | 0.105 | €5,000.00 | (0.01, 0.11) | (0.05, 0.11) | €4,993.29 | three-way |
-| 0.000178 (×0.18) | 0.105 | €8,891.40 | (0.01, 0.11) | (0.05, 0.11) | €8,865.89 | three-way |
-| 0.000316 (×0.32) | 0.105 | €15,811.39 | (0.01, 0.11) | (0.04, 0.11) | €15,740.16 | three-way |
-| 0.000562 (×0.56) | 0.105 | €28,117.07 | (0.00, 0.11) | (0.04, 0.11) | €27,948.57 | three-way |
-| 0.001 (×1.00) | 0.105 | €50,000.00 | (0.00, 0.11) | (0.04, 0.11) | €49,658.52 | three-way |
-| 0.001778 (×1.78) | 0.105 | €88,913.97 | (0.00, 0.11) | (0.04, 0.11) | €88,264.88 | three-way |
-| 0.003162 (×3.16) | 0.013 | €133,573.30 | (0.00, 0.11) | (0.01, 0.01) | €146,316.54 | model alone |
-| 0.005623 (×5.62) | 0.010 | €146,835.81 | (0.00, 0.11) | (0.01, 0.01) | €147,124.46 | model alone |
-| 0.01 (×10.00) | 0.010 | €147,765.20 | (0.00, 0.11) | (0.01, 0.01) | €148,561.18 | model alone |
+| 0.0001 (×0.10) | 0.772 | €546.55 | (0.32, 0.78) | (0.32, 0.78) | €323.93 | three-way |
+| 0.000178 (×0.18) | 0.772 | €971.92 | (0.25, 0.78) | (0.32, 0.78) | €528.24 | three-way |
+| 0.000316 (×0.32) | 0.772 | €1,728.34 | (0.12, 0.78) | (0.32, 0.78) | €891.56 | three-way |
+| 0.000562 (×0.56) | 0.772 | €3,073.47 | (0.09, 0.78) | (0.32, 0.78) | €1,537.63 | three-way |
+| 0.001 (×1.00) | 0.625 | €4,705.12 | (0.08, 0.78) | (0.32, 0.78) | €2,686.54 | three-way |
+| 0.001778 (×1.78) | 0.469 | €6,880.57 | (0.00, 0.78) | (0.32, 0.78) | €4,729.61 | three-way |
+| 0.003162 (×3.16) | 0.469 | €10,539.57 | (0.00, 0.78) | (0.32, 0.78) | €8,362.77 | three-way |
+| 0.005623 (×5.62) | 0.255 | €16,411.52 | (0.00, 0.78) | (0.25, 0.63) | €14,327.93 | three-way |
+| 0.01 (×10.00) | 0.255 | €26,357.58 | (0.00, 0.78) | (0.12, 0.28) | €24,579.74 | three-way |
 
 **Break-even points** (one input scaled, all others held at the values above):
 
-- Recommended policy vs `cost_fn`: switches at **3,748** (×0.075); below → do nothing, above → three-way.
-- Recommended policy vs `cost_fn`: switches at **1.253e+05** (×2.51); below → three-way, above → model alone.
-- Recommended policy vs `cost_fn`: switches at **1.565e+06** (×31.3); below → model alone, above → always alarm.
-- Recommended policy vs `cost_fp`: switches at **4.777** (×0.0318); below → always alarm, above → model alone.
-- Recommended policy vs `cost_fp`: switches at **59.77** (×0.398); below → model alone, above → three-way.
-- Recommended policy vs `cost_fp`: switches at **2,663** (×17.8); below → three-way, above → do nothing.
-- Recommended policy vs `base_rate`: switches at **7.2e-05** (×0.0722); below → do nothing, above → three-way.
-- Recommended policy vs `base_rate`: switches at **0.002506** (×2.51); below → three-way, above → model alone.
-- Recommended policy vs `base_rate`: switches at **0.03047** (×30.5); below → model alone, above → always alarm.
-- Recommended policy vs `review_seconds`: switches at **0.4062** (×0.0203); below → review everything, above → three-way.
-- Recommended policy vs `review_seconds`: switches at **167.9** (×8.4); below → three-way, above → do nothing.
-- Feasible review band in use vs `review_seconds`: switches at **167.9** (×8.4); below → review band used, above → no review band.
+- Recommended policy vs `cost_fn`: switches at **865.2** (×0.0173); below → model alone, above → three-way.
+- Recommended policy vs `cost_fn`: switches at **3.793e+06** (×75.9); below → three-way, above → always alarm.
+- Recommended policy vs `cost_fp`: switches at **1.975** (×0.0132); below → always alarm, above → three-way.
+- Recommended policy vs `cost_fp`: switches at **1.184e+04** (×78.9); below → three-way, above → model alone.
+- Recommended policy vs `base_rate`: switches at **1.4e-05** (×0.0144); below → model alone, above → three-way.
+- Recommended policy vs `base_rate`: switches at **0.07077** (×70.8); below → three-way, above → always alarm.
+- Recommended policy vs `review_seconds`: switches at **167.8** (×8.39); below → three-way, above → model alone.
+- Feasible review band in use vs `review_seconds`: switches at **167.8** (×8.39); below → review band used, above → no review band.
 <!-- /AUTO:costing -->
 
 > ✍️ **YOUR ANALYSIS**
@@ -207,23 +203,23 @@ Test prevalence 83.9% vs assumed base rate 0.001: all costs reweight the test-me
 ## 6. What a person still has to check
 
 <!-- AUTO:review -->
-**Recommended operating point (feasible optimum):** lo = 0.04, hi = 0.11 (pass if s < lo, review if lo ≤ s < hi, alarm if s ≥ hi). Recommended policy overall: **three-way**.
+**Recommended operating point (feasible optimum):** lo = 0.32, hi = 0.78 (pass if s < lo, review if lo ≤ s < hi, alarm if s ≥ hi). Recommended policy overall: **three-way**.
 
 |  | Feasible optimum | Unconstrained optimum |
 |---|---|---|
-| (lo, hi) | (0.04, 0.11) | (0.00, 0.11) |
-| Cost / 1,000 frames | €49,658.52 | €5,810.44 |
-| of which outcomes / staffing | €49,655.60 / €2.92 | €5,639.50 / €170.94 |
-| Share sent to review | 1.694% | 100.000% |
-| Frames reviewed per day | 4,879 | 288,000 |
-| Reviewer hours per day | 27.1 | 1,600.0 |
-| Workload FTE | 4.17 | 246.15 |
-| FTE needed (incl. 24/7 floor) | 4.20 | 246.15 |
+| (lo, hi) | (0.32, 0.78) | (0.08, 0.78) |
+| Cost / 1,000 frames | €2,686.54 | €2,391.06 |
+| of which outcomes / staffing | €2,683.22 / €3.32 | €2,382.36 / €8.70 |
+| Share sent to review | 1.942% | 5.087% |
+| Frames reviewed per day | 5,592 | 14,651 |
+| Reviewer hours per day | 31.1 | 81.4 |
+| Workload FTE | 4.78 | 12.52 |
+| FTE needed (incl. 24/7 floor) | 4.78 | 12.52 |
 | FTE available | 5 | 5 |
 | Feasible | yes | no |
-| Missed per 1,000 true fire/smoke frames | 992.1 | 50.0 |
+| Missed per 1,000 true fire/smoke frames | 49.7 | 41.7 |
 
-Staff capacity: at most 2.031% of frames (5,850 per day) can be reviewed with 5 FTE; 4,757 of 5,151 (lo, hi) pairs on the 0.01 grid are feasible.
+Staff capacity: at most 2.031% of frames (5,850 per day) can be reviewed with 5 FTE; 3,262 of 5,151 (lo, hi) pairs on the 0.01 grid are feasible.
 
 **Policy comparison** (same base rate and costs; per 1,000 frames and per day):
 
@@ -231,8 +227,8 @@ Staff capacity: at most 2.031% of frames (5,850 per day) can be reviewed with 5 
 |---|---|---|---|---|---|---|---|
 | (a) Do nothing / never alarm | €50,000.00 | €14,400,000.00 | 0.00% | 0 | 0.0 | yes | 1000.0 |
 | (b) Human reviews every frame | €5,810.44 | €1,673,406.77 | 100.00% | 288,000 | 246.2 | **no** | 50.0 |
-| (c) Model alone at t*=0.105 | €50,000.00 | €14,400,000.00 | 0.00% | 0 | 0.0 | yes | 1000.0 |
-| (d) Three-way at feasible optimum (0.04, 0.11) | €49,658.52 | €14,301,653.35 | 1.69% | 4,879 | 4.2 | yes | 992.1 |
+| (c) Model alone at t*=0.625 | €4,705.12 | €1,355,074.30 | 0.00% | 0 | 0.0 | yes | 69.5 |
+| (d) Three-way at feasible optimum (0.32, 0.78) | €2,686.54 | €773,723.32 | 1.94% | 5,592 | 4.8 | yes | 49.7 |
 
 Staffing cost = FTE needed × paid hours per FTE-day × hourly cost. It includes the review time itself (share × `cost_review`) plus coverage/idle time.
 <!-- /AUTO:review -->
