@@ -23,94 +23,96 @@
   "positive_definition": "frame contains at least one fire or smoke ground-truth box",
   "splits": {
     "train": {
-      "images": 10296,
-      "background_images": 1689,
-      "background_pct": 16.404429,
+      "images": 14456,
+      "background_images": 5385,
+      "background_pct": 37.250968,
       "instances": {
-        "fire": 866,
-        "smoke": 8798
+        "fire": 916,
+        "smoke": 9179
       },
       "frames": {
-        "fire_only": 309,
-        "smoke_only": 8097,
-        "both": 201,
-        "neither": 1689
+        "fire_only": 351,
+        "smoke_only": 8512,
+        "both": 208,
+        "neither": 5385
       },
-      "positive_prevalence": 0.835956
+      "positive_prevalence": 0.62749
     },
     "val": {
-      "images": 2573,
-      "background_images": 411,
-      "background_pct": 15.973572,
+      "images": 1483,
+      "background_images": 475,
+      "background_pct": 32.02967,
       "instances": {
-        "fire": 227,
-        "smoke": 2177
+        "fire": 15,
+        "smoke": 1019
       },
       "frames": {
-        "fire_only": 80,
-        "smoke_only": 2037,
-        "both": 45,
-        "neither": 411
+        "fire_only": 4,
+        "smoke_only": 999,
+        "both": 5,
+        "neither": 475
       },
-      "positive_prevalence": 0.840264
+      "positive_prevalence": 0.679703
     },
     "test": {
-      "images": 2570,
-      "background_images": 413,
-      "background_pct": 16.070039,
+      "images": 1464,
+      "background_images": 458,
+      "background_pct": 31.284153,
       "instances": {
-        "fire": 194,
-        "smoke": 2176
+        "fire": 36,
+        "smoke": 1002
       },
       "frames": {
-        "fire_only": 70,
-        "smoke_only": 2045,
-        "both": 42,
-        "neither": 413
+        "fire_only": 12,
+        "smoke_only": 989,
+        "both": 5,
+        "neither": 458
       },
-      "positive_prevalence": 0.8393
+      "positive_prevalence": 0.687158
     }
   },
   "box_area_relative": {
     "fire": {
       "all": {
-        "n": 1287,
-        "median": 0.037126,
-        "q1": 0.016704,
-        "q3": 0.075171,
-        "iqr": 0.058467,
-        "small_share": 0.131313
+        "n": 967,
+        "median": 0.037256,
+        "q1": 0.017773,
+        "q3": 0.081182,
+        "iqr": 0.063408,
+        "small_share": 0.122027
       },
       "test": {
-        "n": 194,
-        "median": 0.036721,
-        "q1": 0.013174,
-        "q3": 0.072378,
-        "iqr": 0.059204,
-        "small_share": 0.175258
+        "n": 36,
+        "median": 0.034186,
+        "q1": 0.015009,
+        "q3": 0.067883,
+        "iqr": 0.052874,
+        "small_share": 0.138889
       }
     },
     "smoke": {
       "all": {
-        "n": 13151,
-        "median": 0.375156,
-        "q1": 0.190525,
-        "q3": 0.552197,
-        "iqr": 0.361672,
-        "small_share": 0.006311
+        "n": 11200,
+        "median": 0.374185,
+        "q1": 0.192042,
+        "q3": 0.557452,
+        "iqr": 0.36541,
+        "small_share": 0.006071
       },
       "test": {
-        "n": 2176,
-        "median": 0.35563,
-        "q1": 0.169523,
-        "q3": 0.475581,
-        "iqr": 0.306058,
-        "small_share": 0.005055
+        "n": 1002,
+        "median": 0.373931,
+        "q1": 0.306606,
+        "q3": 0.656348,
+        "iqr": 0.349741,
+        "small_share": 0.003992
       }
     }
   },
   "small_box_threshold": 0.01,
   "low_count_threshold": 100,
-  "low_count_classes_test": [],
-  "test_prevalence": 0.8393
+  "low_count_classes_test": [
+    "fire"
+  ],
+  "test_prevalence": 0.687158
 }

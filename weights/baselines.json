@@ -1,31 +1,31 @@
 {
   "positive_class": "frame contains fire or smoke (any ground-truth box of either class)",
   "test_frames": {
-    "positive": 2157,
-    "negative": 413
+    "positive": 1006,
+    "negative": 458
   },
   "finetuned": {
-    "mAP50": 0.824046,
-    "mAP50-95": 0.57362,
-    "operating_point": "model alone at t*=0.772",
+    "mAP50": 0.677358,
+    "mAP50-95": 0.433215,
+    "operating_point": "model alone at t*=0.657",
     "frame_confusion": {
-      "TP": 1967,
-      "FN": 190,
+      "TP": 928,
+      "FN": 78,
       "FP": 0,
-      "TN": 413
+      "TN": 458
     },
-    "frame_recall": 0.911915,
+    "frame_recall": 0.922465,
     "frame_fpr": 0.0,
-    "cost_per_1000": 486.022253
+    "cost_per_1000": 433.797217
   },
   "coco_zero_shot": {
     "mAP50": 0.0,
     "mAP50-95": 0.0,
     "frame_confusion": {
       "TP": 0,
-      "FN": 2157,
+      "FN": 1006,
       "FP": 0,
-      "TN": 413
+      "TN": 458
     },
     "frame_recall": 0.0,
     "frame_fpr": 0.0,
@@ -34,51 +34,51 @@
     "coco_has_fire_or_smoke_class": false,
     "logging_conf": 0.25,
     "frames_with_any_detection": {
-      "positive": 1207,
-      "negative": 193
+      "positive": 513,
+      "negative": 198
     },
     "top_classes_positive_frames": [
       [
         "car",
-        271
-      ],
-      [
-        "chair",
-        242
+        120
       ],
       [
         "person",
-        215
+        105
+      ],
+      [
+        "chair",
+        91
+      ],
+      [
+        "potted plant",
+        34
       ],
       [
         "bed",
-        104
-      ],
-      [
-        "couch",
-        88
+        32
       ]
     ],
     "top_classes_negative_frames": [
       [
         "person",
-        70
+        49
       ],
       [
-        "pizza",
-        20
+        "car",
+        34
       ],
       [
-        "vase",
-        11
+        "chair",
+        22
       ],
       [
-        "train",
-        10
+        "oven",
+        13
       ],
       [
-        "boat",
-        10
+        "toilet",
+        8
       ]
     ],
     "note": "COCO has no fire or smoke class, so its decision score is 0.0 for every frame and its fire/smoke AP is 0. Counts are frames in which the class appears at least once."
@@ -88,9 +88,9 @@
     "mAP50-95": 0.0,
     "frame_confusion": {
       "TP": 0,
-      "FN": 2157,
+      "FN": 1006,
       "FP": 0,
-      "TN": 413
+      "TN": 458
     },
     "frame_recall": 0.0,
     "frame_fpr": 0.0,
@@ -101,9 +101,9 @@
     "mAP50": null,
     "mAP50-95": null,
     "frame_confusion": {
-      "TP": 2157,
+      "TP": 1006,
       "FN": 0,
-      "FP": 413,
+      "FP": 458,
       "TN": 0
     },
     "frame_recall": 1.0,

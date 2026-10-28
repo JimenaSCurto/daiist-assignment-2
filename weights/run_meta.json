@@ -1,34 +1,34 @@
 {
   "model": "yolo11n.pt",
   "settings": {
-    "epochs": 30,
+    "epochs": 5,
     "imgsz": 640,
     "patience": 10,
     "batch": 16,
     "fraction": 1.0,
     "seed": 0
   },
-  "resumed": true,
-  "epochs_completed": 30,
+  "resumed": false,
+  "epochs_completed": 5,
   "stopped_early": false,
-  "best_epoch": 30,
+  "best_epoch": 5,
   "best_val": {
-    "precision": 0.84401,
-    "recall": 0.78916,
-    "mAP50": 0.83984,
-    "mAP50-95": 0.57321
+    "precision": 0.68579,
+    "recall": 0.61322,
+    "mAP50": 0.6822,
+    "mAP50-95": 0.45054
   },
-  "train_images_used": 10296,
-  "wall_clock_seconds": 65888.7,
-  "seconds_per_epoch": 2196.3,
+  "train_images_used": 14456,
+  "wall_clock_seconds": 938.8,
+  "seconds_per_epoch": 187.8,
   "environment": {
-    "device": "mps",
-    "device_name": "Apple MPS (Apple M4)",
-    "platform": "macOS-15.6-arm64-arm-64bit",
-    "python": "3.12.12",
-    "torch": "2.11.0",
-    "ultralytics": "8.4.173",
-    "started_at": "2026-10-26T08:36:51+00:00"
+    "device": "0",
+    "device_name": "Tesla T4",
+    "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
+    "python": "3.13.16",
+    "torch": "2.11.0+cu130",
+    "ultralytics": "8.4.191",
+    "started_at": "2026-10-28T22:30:48+00:00"
   },
   "dataset": {
     "workspace": "dangerzone-6iqvs",
@@ -38,12 +38,13 @@
     "url": "https://universe.roboflow.com/dangerzone-6iqvs/smoke_fire-idefg/dataset/5",
     "licence": "CC BY 4.0"
   },
+  "split": "grouped",
   "ultralytics_args": {
     "task": "detect",
     "mode": "train",
-    "model": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs/finetune/weights/last.pt",
-    "data": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/datasets/smoke_fire-idefg-5/data_abs.yaml",
-    "epochs": 30,
+    "model": "yolo11n.pt",
+    "data": "/content/daiist-assignment-2/datasets/smoke_fire-idefg-5-grouped/data_abs.yaml",
+    "epochs": 5,
     "time": null,
     "patience": 10,
     "batch": 16,
@@ -51,9 +52,9 @@
     "save": true,
     "save_period": -1,
     "cache": false,
-    "device": "mps",
-    "workers": 0,
-    "project": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs",
+    "device": "0",
+    "workers": 2,
+    "project": "/content/daiist-assignment-2/runs",
     "name": "finetune",
     "exist_ok": true,
     "pretrained": true,
@@ -66,7 +67,7 @@
     "rect": false,
     "cos_lr": false,
     "close_mosaic": 10,
-    "resume": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs/finetune/weights/last.pt",
+    "resume": false,
     "amp": true,
     "fraction": 1.0,
     "profile": false,
@@ -152,8 +153,6 @@
     "erasing": 0.4,
     "cfg": null,
     "tracker": "tracktrack.yaml",
-    "save_dir": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs.nosync/finetune"
-  },
-  "training_sessions": 2,
-  "last_eval_only_run": "2026-10-28T20:46:19+00:00"
+    "save_dir": "/content/daiist-assignment-2/runs/finetune"
+  }
 }
