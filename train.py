@@ -5,6 +5,8 @@ Run with `uv run python main.py train`. Stages, top to bottom, no manual steps:
 
   1. setup      load the Roboflow key, pick a device, seed everything
   2. download   the pinned Roboflow Universe version into datasets/
+     group      GROUPED=1 (default): local rebuild with a source-grouped re-split and
+                same-source negative crops -> datasets/<version>-grouped/
   3. describe   split sizes, class balance, box sizes  -> weights/dataset_stats.json
   4. finetune   MODEL on train/val                     -> weights/best.pt, run_meta.json
   5. evaluate   test-split detection metrics, scores   -> weights/eval.json, test_scores.csv
@@ -18,6 +20,9 @@ at least one ground-truth fire or smoke box.
 
 Set EVAL_ONLY=1 to skip training (weights/best.pt must exist) and redo
 everything downstream, e.g. after changing DECISIONS.
+
+Set GROUPED=0 to train on Roboflow's original split instead (its train and test
+share source photos, and each source family has a single label; see section 7b).
 
 Set RESUME=1 to continue an interrupted training run from its last finished
 epoch (runs/finetune/weights/last.pt, saved by Ultralytics after every epoch)
@@ -48,25 +53,25 @@ from api_key import load_api_key
 #     these anywhere else.
 # =====================================================================
 DECISIONS = {
-    # Costs in EUR per frame outcome
-    "cost_fn": 50_000.0,     # missed fire/smoke frame (PLACEHOLDER)
-    "cost_fp": 150.0,        # false alarm / unnecessary escalation (PLACEHOLDER)
-    "cost_tp": 150.0,        # cost of a correct dispatch, if any (PLACEHOLDER)
+    # Costs in EUR per frame outcome (one frame = one minute of one camera)
+    "cost_fn": 50_000.0,     # one more minute of pre-flashover growth: (~€250k full loss - ~€10k contained) / ~5 min
+    "cost_fp": 500.0,        # alarm protocol run for nothing: brigade turn-out fee, guard call-out, keyholder, disruption
+    "cost_tp": 500.0,        # the same response is paid when the fire is real
     "cost_tn": 0.0,
-    # Production base rate: share of frames that truly contain fire/smoke
-    "base_rate": 0.001,      # PLACEHOLDER
+    # Production base rate: share of frames showing an unhandled fire (deliberately high, see REPORT.md)
+    "base_rate": 0.0001,
     # Human review
-    "review_seconds": 20,    # time to check one frame (PLACEHOLDER)
-    "reviewer_cost_per_hour": 25.0,  # loaded hourly cost (PLACEHOLDER)
-    "human_recall": 0.95,    # P(reviewer flags | true fire)  (PLACEHOLDER)
-    "human_fpr": 0.02,       # P(reviewer flags | no fire)    (PLACEHOLDER)
+    "review_seconds": 20,    # look at one still, compare with the previous minute, decide
+    "reviewer_cost_per_hour": 25.0,  # loaded cost of an alarm-centre operator
+    "human_recall": 0.95,    # P(operator escalates | real fire): faint or distant smoke is still missed
+    "human_fpr": 0.02,       # P(operator escalates | no fire): steam/dust/haze escalated to be safe
     # Volume and staffing
-    "n_cameras": 200,                    # PLACEHOLDER
-    "frames_per_camera_per_day": 1440,   # e.g. 1 frame/min (PLACEHOLDER)
-    "productive_hours_per_fte_day": 6.5, # PLACEHOLDER
-    "paid_hours_per_fte_day": 8.0,       # paid hours per FTE-day, for salary cost (PLACEHOLDER)
-    "min_on_duty_fte_24_7": 4.2,         # coverage floor if any review exists (PLACEHOLDER)
-    "available_reviewer_fte": 5.0,       # capacity constraint (PLACEHOLDER)
+    "n_cameras": 200,
+    "frames_per_camera_per_day": 1440,   # one still per minute
+    "productive_hours_per_fte_day": 6.5, # 8 paid hours minus breaks, handovers, other alarms
+    "paid_hours_per_fte_day": 8.0,
+    "min_on_duty_fte_24_7": 4.2,         # one seat 24/7: 8,760 h / ~2,080 h per FTE-year
+    "available_reviewer_fte": 5.0,       # the centre's current operator headcount for this service
 }
 # =====================================================================
 
@@ -94,6 +99,7 @@ BATCH = _env("BATCH", 16, int)
 FRACTION = _env("FRACTION", 1.0, float)
 SEED = _env("SEED", 0, int)
 WORKERS = _env("WORKERS", 8, int)  # dataloader processes; lower it if RAM/swap runs out
+GROUPED = os.environ.get("GROUPED", "1").strip() == "1"  # group split + same-source negatives (see prepare_grouped)
 EVAL_ONLY = os.environ.get("EVAL_ONLY", "0").strip() == "1"
 RESUME = os.environ.get("RESUME", "0").strip() == "1"
 
@@ -104,6 +110,11 @@ CM_CONF = 0.25           # Ultralytics' standard conf for the detection confusio
 COCO_LOG_CONF = 0.25     # conf used to log what the COCO model "sees" on test frames
 LOW_COUNT = 100          # fewer test instances than this -> per-class numbers flagged
 SMALL_BOX = 0.01         # box area under 1% of the image counts as "small"
+SPLIT_SHARES = {"train": 0.70, "val": 0.15, "test": 0.15}  # of source images, for GROUPED=1
+NEG_TAG = "_negcrop"     # filename marker for same-source negative crops
+NEG_MARGIN = 0.05        # keep crops this far (share of the image) from any box, since smoke spills past its box
+NEG_MIN_SIDE = 0.3       # a crop must cover at least this share of both image sides
+NEG_MAX_BLACK = 0.3      # reject crops that are mostly black rotation padding
 N_SWEEP = 201            # threshold grid points for the model-alone sweep (plus every unique score)
 N_POLICY_GRID = 101      # lo/hi grid points for the three-way search (step 0.01)
 N_BOOT = 1000            # stratified bootstrap resamples
@@ -259,6 +270,109 @@ def dataset_config(ds):
     return names, data_yaml, source
 
 
+def prepare_grouped(ds):
+    """Local, deterministic rebuild of the downloaded version (the Roboflow version is untouched):
+    1. Group split: Roboflow's split puts augmented copies of one source photo in train and test.
+       Re-split by source image (SPLIT_SHARES), so no source is seen in training and scored in test.
+    2. Same-source negatives: for each positive frame, crop its largest region with no box
+       (margin NEG_MARGIN) and add it as a background frame in the same split. Every source family
+       then has both labels, so recognising the source no longer predicts the label."""
+    from PIL import Image
+
+    out = DATA_ROOT / f"{ds.name}-grouped"
+    if (out / "grouping.json").is_file():
+        log("group", f"already built at {out.relative_to(ROOT)}, skipping")
+        return out, json.loads((out / "grouping.json").read_text())
+    tmp = out.with_name(out.name + ".tmp")
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    for name in ("data.yaml", "README.roboflow.txt", "README.dataset.txt"):
+        if (ds / name).is_file():
+            shutil.copy2(ds / name, tmp / name)
+
+    # Group every copy by source image, then assign whole sources to splits, stratified by
+    # (family, label) so each split keeps the same mix. Val/test keep one copy per source,
+    # preferring one Roboflow did not augment (originally in test, then val).
+    groups = {}
+    for split in ("test", "val", "train"):
+        for image in list_images(ds, split):
+            groups.setdefault(source_base(image.name), []).append(image)
+    strata = {}
+    for base, copies in groups.items():
+        key = (source_family(copies[0].name), int(bool(read_boxes(copies[0]))))
+        strata.setdefault(key, []).append(base)
+    rng = random.Random(SEED)
+    targets = {split: [] for split in SPLIT_DIRS}
+    for key in sorted(strata):
+        bases = sorted(strata[key])
+        rng.shuffle(bases)
+        n_train = round(len(bases) * SPLIT_SHARES["train"])
+        n_val = round(len(bases) * SPLIT_SHARES["val"])
+        for i, base in enumerate(bases):
+            split = "train" if i < n_train else "val" if i < n_train + n_val else "test"
+            targets[split] += groups[base] if split == "train" else groups[base][:1]
+    n_frames = sum(len(c) for c in groups.values())
+
+    summary = {"sources": len(groups), "frames_in_download": n_frames, "kept": {}, "negative_crops": {},
+               "negative_crops_by_family": {}}
+    for split, split_images in targets.items():
+        img_dir, lab_dir = tmp / SPLIT_DIRS[split] / "images", tmp / SPLIT_DIRS[split] / "labels"
+        img_dir.mkdir(parents=True, exist_ok=True)
+        lab_dir.mkdir(parents=True, exist_ok=True)
+        kept, crops, by_family = 0, 0, Counter()
+        for image in sorted(split_images, key=lambda p: p.name):
+            kept += 1
+            os.link(image, img_dir / image.name)
+            lab = label_path(image)
+            (lab_dir / lab.name).write_text(lab.read_text() if lab.is_file() else "")
+            boxes = read_boxes(image)
+            if not boxes:
+                continue
+            crop = negative_crop(image, boxes, Image)
+            if crop is None:
+                continue
+            stem, _, suffix = image.name.partition(".rf.")
+            name = f"{stem}{NEG_TAG}.rf.{suffix}" if suffix else f"{image.stem}{NEG_TAG}.jpg"
+            crop.save(img_dir / name, quality=95)
+            (lab_dir / f"{Path(name).stem}.txt").write_text("")
+            crops += 1
+            by_family[source_family(image.name)] += 1
+        summary["kept"][split] = kept
+        summary["negative_crops"][split] = crops
+        summary["negative_crops_by_family"][split] = dict(by_family)
+        log("group", f"{split:<5} {kept:>6} frames, {crops:>5} same-source negative crops added")
+    summary["dropped_copies"] = n_frames - sum(summary["kept"].values())
+    shares = "/".join(f"{v:.0%}" for v in SPLIT_SHARES.values())
+    summary["rule"] = (f"source images (filename before '.rf.') re-split {shares} train/val/test, stratified "
+                       f"by source family and label, one copy per source in val and test; negative crop = "
+                       f"largest box-free strip at least {NEG_MIN_SIDE:.0%} of each side, {NEG_MARGIN:.0%} "
+                       f"margin around every box, rejected if over {NEG_MAX_BLACK:.0%} black padding")
+    (tmp / "grouping.json").write_text(json.dumps(summary, indent=2) + "\n")
+    shutil.rmtree(out, ignore_errors=True)
+    tmp.rename(out)
+    return out, summary
+
+
+def negative_crop(image_path, boxes, Image):
+    """Largest left/right/top/bottom strip that stays NEG_MARGIN away from every box, or None."""
+    x0 = max(min(b[1] for b in boxes) - NEG_MARGIN, 0)
+    y0 = max(min(b[2] for b in boxes) - NEG_MARGIN, 0)
+    x1 = min(max(b[3] for b in boxes) + NEG_MARGIN, 1)
+    y1 = min(max(b[4] for b in boxes) + NEG_MARGIN, 1)
+    strips = [(0, 0, x0, 1), (x1, 0, 1, 1), (0, 0, 1, y0), (0, y1, 1, 1)]
+    strips = [s for s in strips if s[2] - s[0] >= NEG_MIN_SIDE and s[3] - s[1] >= NEG_MIN_SIDE]
+    if not strips:
+        return None
+    sx0, sy0, sx1, sy1 = max(strips, key=lambda s: (s[2] - s[0]) * (s[3] - s[1]))
+    with Image.open(image_path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        crop = im.crop((round(sx0 * w), round(sy0 * h), round(sx1 * w), round(sy1 * h)))
+    if (np.asarray(crop).max(axis=2) < 12).mean() > NEG_MAX_BLACK:  # rotation padding, not a scene
+        return None
+    return crop
+
+
 def class_roles(names):
     """Which class ids count as fire and as smoke; anything else is excluded from the score."""
     fire = [i for i, n in enumerate(names) if re.search(r"fire|flame", n, re.I)]
@@ -277,9 +391,13 @@ def list_images(ds, split):
     return sorted(p for p in folder.iterdir() if p.suffix.lower() in IMG_EXT)
 
 
-def read_labels(image_path):
-    """Return [(class_id, relative_box_area)] for one image. Polygons become their bbox."""
-    path = image_path.parent.parent / "labels" / f"{image_path.stem}.txt"
+def label_path(image_path):
+    return image_path.parent.parent / "labels" / f"{image_path.stem}.txt"
+
+
+def read_boxes(image_path):
+    """Return [(class_id, x0, y0, x1, y1)] in relative coordinates. Polygons become their bbox."""
+    path = label_path(image_path)
     rows = []
     if not path.is_file():
         return rows
@@ -289,12 +407,17 @@ def read_labels(image_path):
             continue
         cls, nums = int(float(values[0])), [float(v) for v in values[1:]]
         if len(nums) == 4:
-            w, h = nums[2], nums[3]
+            x, y, w, h = nums
+            rows.append((cls, x - w / 2, y - h / 2, x + w / 2, y + h / 2))
         else:
             xs, ys = nums[0::2], nums[1::2]
-            w, h = max(xs) - min(xs), max(ys) - min(ys)
-        rows.append((cls, w * h))
+            rows.append((cls, min(xs), min(ys), max(xs), max(ys)))
     return rows
+
+
+def read_labels(image_path):
+    """Return [(class_id, relative_box_area)] for one image."""
+    return [(c, (x1 - x0) * (y1 - y0)) for c, x0, y0, x1, y1 in read_boxes(image_path)]
 
 
 def scan_labels(ds, roles):
@@ -501,6 +624,7 @@ def finetune(data_yaml, env, source):
         "seconds_per_epoch": round(wall / max(epochs_done, 1), 1),
         "environment": env,
         "dataset": source,
+        "split": "grouped" if GROUPED else "original",
         "ultralytics_args": args,
     }
     save_json("run_meta.json", meta)
@@ -1092,6 +1216,112 @@ def assemble_baselines(ev, coco, dec, scores, D):
 
 
 # ---------------------------------------------------------------------------
+# 7b. Source audit: train/test overlap and source-label confounding
+# ---------------------------------------------------------------------------
+FAMILIES = [  # (pattern on the original filename, label for the report)
+    (r"^[HML]_\d+", "H_/M_/L_ (indoor rooms, composited smoke)"),
+    (r"^image\d+", "imageNNNN (web photos)"),
+    (r"mp4", "video frames (*_mp4-NNNN)"),
+    (r"^\d", "numeric names (outdoor/news photos)"),
+]
+
+
+def source_base(image_id):
+    """Original filename before Roboflow's '.rf.<hash>' suffix: augmented copies share it."""
+    return re.sub(r"\.rf\.[0-9a-f]+\.\w+$", "", image_id)
+
+
+def source_family(image_id):
+    for pattern, label in FAMILIES:
+        if re.search(pattern, image_id):
+            return label
+    return "other web images"
+
+
+def roc_auc(pos, neg):
+    """P(score of a random positive > score of a random negative), ties count half."""
+    if len(pos) == 0 or len(neg) == 0:
+        return None
+    ranks = pd.Series(np.concatenate([pos, neg])).rank().to_numpy()
+    return float((ranks[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+
+
+def audit_sources(frames, scores, dec, D, grouping=None):
+    f = frames.assign(base=frames.image_id.map(source_base), family=frames.image_id.map(source_family),
+                      crop=frames.image_id.str.contains(NEG_TAG, regex=False))
+    seen = set(f.loc[f.split != "test", "base"])
+    test = f[f.split == "test"].reset_index(drop=True)
+    test = test.assign(leaked=test.base.isin(seen).to_numpy(),
+                       s=test.image_id.map(scores.set_index("image_id").s).to_numpy())
+    t_star = dec["t_star"]
+    lo, hi = dec["recommended_operating_point"]["lo"], dec["recommended_operating_point"]["hi"]
+
+    def rates(df):
+        pos, neg = np.sort(df.s[df.y_true == 1].to_numpy()), np.sort(df.s[df.y_true == 0].to_numpy())
+        row = {"n_pos": int(pos.size), "n_neg": int(neg.size), "auc": r6(roc_auc(pos, neg))}
+        row["recall_at_t_star"] = r6(float(share_at_or_above(pos, t_star))) if pos.size else None
+        row["fpr_at_t_star"] = r6(float(share_at_or_above(neg, t_star))) if neg.size else None
+        row["pos_passed_at_band"] = r6(1 - float(share_at_or_above(pos, lo))) if pos.size else None
+        row["neg_reviewed_or_alarmed_at_band"] = r6(float(share_at_or_above(neg, lo))) if neg.size else None
+        if pos.size and neg.size:
+            pa, pr, na, nr = three_way_rates(pos, neg, lo, hi)
+            row["band_cost_per_1000"] = r6(1000 * float(policy_cost(pa, pr, na, nr, D)["total_cost_per_frame"]))
+        return row
+
+    subsets = {"all test frames": test}
+    if test.leaked.any():
+        subsets["clean (source not in train/val)"] = test[~test.leaked]
+        subsets["leaked (source also in train/val)"] = test[test.leaked]
+    if test.crop.any():  # the shortcut test: same source, no smoke, so only the pixels can say "clear"
+        subsets["original frames only (no crops)"] = test[~test.crop]
+        subsets["positives + same-source negative crops"] = test[test.crop | (test.y_true == 1)]
+    by_family = {}
+    for fam, df in test.groupby("family"):
+        by_family[fam] = {**rates(df), "n_frames": int(len(df)), "leaked_frames": int(df.leaked.sum()),
+                          "fire_frames": int(df.y_fire.sum()), "smoke_frames": int(df.y_smoke.sum()),
+                          "background_frames": int((df.y_true == 0).sum()), "negative_crops": int(df.crop.sum())}
+
+    # Pixel-free baseline: each family predicts its majority frame label in train.
+    train = f[f.split == "train"]
+    majority = train.groupby("family").y_true.mean().ge(0.5).astype(int).to_dict()
+    pred = test.family.map(majority).fillna(int(train.y_true.mean() >= 0.5)).astype(int)
+    tp = int(((pred == 1) & (test.y_true == 1)).sum())
+    fp = int(((pred == 1) & (test.y_true == 0)).sum())
+    n_pos, n_neg = int(test.y_true.sum()), int((test.y_true == 0).sum())
+    tpr, fpr = tp / n_pos, fp / n_neg
+    source_only = {
+        "rule": {fam: ("fire/smoke" if v else "clear") for fam, v in majority.items()},
+        "frame_confusion": {"TP": tp, "FN": n_pos - tp, "FP": fp, "TN": n_neg - fp},
+        "accuracy": r6((tp + n_neg - fp) / len(test)), "frame_recall": r6(tpr), "frame_fpr": r6(fpr),
+        "cost_per_1000": r6(1000 * float(model_alone_cost(tpr, fpr, D))),
+    }
+
+    overlap = {}
+    for a, b in (("train", "test"), ("train", "val"), ("val", "test")):
+        shared = set(f.base[f.split == a]) & set(f.base[f.split == b])
+        overlap[f"{a}-{b}"] = {"shared_sources": len(shared),
+                               f"{b}_frames_affected": int(f[(f.split == b) & f.base.isin(shared)].shape[0])}
+
+    leaked = test[test.leaked]
+    return {
+        "note": "source = filename before Roboflow's '.rf.<hash>' suffix; family = filename pattern. "
+                "Leaked = a test frame whose source image also appears (augmented) in train or val. "
+                "The source-only baseline reads no pixels and is not deployable; it shows how much of the "
+                "test split can be solved from where an image came from. Negative crops are box-free regions "
+                "of positive frames from the same source, added as backgrounds by prepare_grouped.",
+        "leaked_family_mix": leaked.family.value_counts().to_dict(),
+        "t_star": t_star, "band": {"lo": lo, "hi": hi},
+        "unique_sources": {s: int(f.base[f.split == s].nunique()) for s in SPLIT_DIRS},
+        "frames": {s: int((f.split == s).sum()) for s in SPLIT_DIRS},
+        "split_overlap": overlap,
+        "subsets": {k: rates(v) for k, v in subsets.items()},
+        "by_family": by_family,
+        "source_only_baseline": source_only,
+        "grouping": grouping,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 8. REPORT.md auto blocks
 # ---------------------------------------------------------------------------
 def md_table(header, rows):
@@ -1122,7 +1352,8 @@ def block_dataset(stats):
         + (f"Excluded from the decision score (kept in training): "
            f"{', '.join(f'`{n}`' for n in stats['excluded_from_score'])}."
            if stats["excluded_from_score"] else ""),
-        "",
+    ]
+    tables = [
         md_table(["Split", "Images", "Background (no labels)", "Fire only", "Smoke only", "Both",
                   "Neither fire nor smoke", "Fire-or-smoke prevalence"],
                  [[s, f"{v['images']:,}", f"{v['background_images']:,} ({v['background_pct']:.1f}%)",
@@ -1147,7 +1378,7 @@ def block_dataset(stats):
         "",
         "![Dataset overview](weights/dataset_overview.png)",
     ]
-    return "\n".join(out)
+    return "\n".join(out + [""] + tables), "\n".join(tables)
 
 
 def block_training(meta):
@@ -1181,7 +1412,7 @@ def block_training(meta):
     return md_table(["Setting", "Value"], rows) + "\n\nFull settings: `weights/run_meta.json`."
 
 
-def block_results(ev, base, stats):
+def block_results(ev, base, stats, audit=None):
     inst = stats["splits"]["test"]["instances"]
     rows = [[c["class"], num(c["precision"]), num(c["recall"]), num(c["AP50"]), num(c["AP50-95"]),
              f"{inst.get(c['class'], c['test_instances']):,}"] for c in ev["per_class"]]
@@ -1190,13 +1421,15 @@ def block_results(ev, base, stats):
           ("Predict nothing", base["predict_nothing"])]
     if "always_alarm" in base:
         bl.append(("Always alarm", base["always_alarm"]))
+    if audit is not None:
+        bl.append(("Source-only rule (filename, no pixels)", {"mAP50": None, **audit["source_only_baseline"]}))
     brow = [[n, num(b["mAP50"]), pct(b["frame_recall"]), pct(b["frame_fpr"]),
              fmt_eur(b["cost_per_1000"]),
              f"{b['frame_confusion']['TP']}/{b['frame_confusion']['FN']}/"
              f"{b['frame_confusion']['FP']}/{b['frame_confusion']['TN']}"] for n, b in bl]
     coco = base["coco_zero_shot"]
     top = lambda lst: ", ".join(f"`{n}` ({c})" for n, c in lst) or "none"
-    out = [
+    per_class = [
         f"**Positive class:** {ev['positive_class']}.",
         "",
         f"**Overall (test):** mAP50 = {num(ev['overall']['mAP50'])}, "
@@ -1207,7 +1440,8 @@ def block_results(ev, base, stats):
         f"*{ev['per_class_note']}.*",
         "",
         "![Detection confusion matrix](weights/confusion_detection.png)",
-        "",
+    ]
+    baselines = [
         "**Baselines on the same test split** (frame level; costs use the DECISIONS block at the "
         "production base rate):",
         "",
@@ -1221,7 +1455,7 @@ def block_results(ev, base, stats):
         f"frames: {top(coco['top_classes_positive_frames'])}. On negative frames: "
         f"{top(coco['top_classes_negative_frames'])}.",
     ]
-    return "\n".join(out)
+    return "\n".join(per_class), "\n".join(baselines)
 
 
 def block_costing(dec):
@@ -1343,6 +1577,61 @@ def block_review(dec):
     return "\n".join(out)
 
 
+def block_audit(a):
+    ov = a["split_overlap"]
+    sub_rows = [[k, f"{v['n_pos']:,}", f"{v['n_neg']:,}", num(v["auc"]), pct(v["recall_at_t_star"]),
+                 pct(v["fpr_at_t_star"]), pct(v["pos_passed_at_band"]), pct(v["neg_reviewed_or_alarmed_at_band"]),
+                 fmt_eur(v["band_cost_per_1000"]) if v.get("band_cost_per_1000") is not None else None]
+                for k, v in a["subsets"].items()]
+    fam_rows = [[k, f"{v['n_frames']:,}", f"{v['smoke_frames']:,}", f"{v['fire_frames']:,}",
+                 f"{v['background_frames']:,}", f"{v.get('negative_crops', 0):,}", f"{v['leaked_frames']:,}",
+                 num(v["auc"]), pct(v["recall_at_t_star"]), pct(v["fpr_at_t_star"])]
+                for k, v in sorted(a["by_family"].items(), key=lambda kv: -kv[1]["n_frames"])]
+    so = a["source_only_baseline"]
+    rule = "; ".join(f"{fam} → {lab}" for fam, lab in so["rule"].items())
+    cm = so["frame_confusion"]
+    g = a.get("grouping")
+    grouping = [] if not g else [
+        f"**Fix applied before training (GROUPED=1):** {g['rule']}. {g['sources']:,} source images; "
+        f"{g['dropped_copies']:,} extra augmented copies dropped from val/test. Frames kept: "
+        + ", ".join(f"{s} {n:,}" for s, n in g["kept"].items())
+        + ". Same-source negative crops added: "
+        + ", ".join(f"{s} {n:,}" for s, n in g["negative_crops"].items()) + ".",
+        "",
+    ]
+    return "\n".join(grouping + [
+        f"**Unique source images** (augmented copies share one): train {a['unique_sources']['train']:,} of "
+        f"{a['frames']['train']:,} frames, val {a['unique_sources']['val']:,} of {a['frames']['val']:,}, "
+        f"test {a['unique_sources']['test']:,} of {a['frames']['test']:,}.",
+        "",
+        f"**Split overlap:** {ov['train-test']['shared_sources']:,} source images appear in both train and test "
+        f"({ov['train-test']['test_frames_affected']:,} test frames); train–val {ov['train-val']['shared_sources']:,}; "
+        f"val–test {ov['val-test']['shared_sources']:,}.",
+        "",
+        "**Test split by source family** (rates at the model-alone t* = "
+        f"{a['t_star']:.3f}):",
+        "",
+        md_table(["Family", "Frames", "Smoke frames", "Fire frames", "Background", "of which negative crops",
+                  "Leaked", "ROC AUC within family", "Recall at t*", "FPR at t*"], fam_rows),
+        "",
+        f"**Test subsets** (band = ({a['band']['lo']:.2f}, {a['band']['hi']:.2f})):",
+        "",
+        md_table(["Subset", "Positives", "Negatives", "ROC AUC", "Recall at t*", "FPR at t*",
+                  "Positives passed (s < lo)", "Negatives reviewed or alarmed (s ≥ lo)", "Cost / 1,000 at band"],
+                 sub_rows),
+        "",
+        ("Leaked test frames by family: " + ", ".join(f"{k} {v:,}" for k, v in a["leaked_family_mix"].items())
+         + ". The leaked and clean rows therefore differ in family mix as well as in leakage."
+         if a["leaked_family_mix"] else "No test frame shares a source photo with train or val."),
+        "",
+        f"**Pixel-free source-only baseline** (each family predicts its majority train label: {rule}): "
+        f"accuracy {pct(so['accuracy'])}, frame recall {pct(so['frame_recall'])}, frame FPR {pct(so['frame_fpr'])}, "
+        f"TP/FN/FP/TN {cm['TP']}/{cm['FN']}/{cm['FP']}/{cm['TN']}, cost {fmt_eur(so['cost_per_1000'])} per 1,000 frames.",
+        "",
+        f"*{a['note']}*",
+    ])
+
+
 def block_dashboard():
     return "\n".join([
         "```bash",
@@ -1389,6 +1678,9 @@ def main():
     env = setup()
 
     ds = download_dataset()
+    grouping = None
+    if GROUPED:
+        ds, grouping = prepare_grouped(ds)
     names, data_yaml, source = dataset_config(ds)
     roles = class_roles(names)
     log("describe", f"classes {names}; fire={roles['fire']} smoke={roles['smoke']} excluded={roles['other']}")
@@ -1403,6 +1695,10 @@ def main():
             raise SystemExit("EVAL_ONLY=1 but weights/best.pt does not exist. Train first.")
         meta_path = WEIGHTS / "run_meta.json"
         meta = json.loads(meta_path.read_text()) if meta_path.is_file() else {"model": MODEL}
+        trained_on = meta.get("split", "original")
+        if trained_on != ("grouped" if GROUPED else "original"):
+            raise SystemExit(f"weights/best.pt was trained on the {trained_on} split, but GROUPED={int(GROUPED)}. "
+                             "Its test frames leak into that training set; retrain, or set GROUPED to match.")
         meta["last_eval_only_run"] = env["started_at"]
         save_json("run_meta.json", meta)
         log("finetune", "EVAL_ONLY=1, reusing weights/best.pt")
@@ -1418,11 +1714,18 @@ def main():
     save_json("decision.json", dec)
     base = assemble_baselines(ev, coco, dec, scores, DECISIONS)
     save_json("baselines.json", base)
+    audit = audit_sources(frames, scores, dec, DECISIONS, grouping)
+    save_json("source_audit.json", audit)
 
+    per_class, baselines = block_results(ev, base, stats, audit)
+    dataset_block, dataset_tables = block_dataset(stats)
     refresh_report({
-        "dataset": block_dataset(stats),
+        "dataset": dataset_block,
+        "dataset_tables": dataset_tables,  # tables only, for a hand-written dataset intro
+        "audit": block_audit(audit),
         "training": block_training(meta),
-        "results": block_results(ev, base, stats),
+        "baselines": baselines,
+        "per_class": per_class,
         "costing": block_costing(dec),
         "review": block_review(dec),
         "dashboard": block_dashboard(),

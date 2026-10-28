@@ -154,5 +154,6 @@
     "tracker": "tracktrack.yaml",
     "save_dir": "/Users/jimenasanchezcurto/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Ie/2026 - 2027/First Semester/daiist-assignment-2/runs.nosync/finetune"
   },
-  "training_sessions": 2
+  "training_sessions": 2,
+  "last_eval_only_run": "2026-10-28T20:46:19+00:00"
 }

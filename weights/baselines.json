@@ -7,16 +7,16 @@
   "finetuned": {
     "mAP50": 0.824046,
     "mAP50-95": 0.57362,
-    "operating_point": "model alone at t*=0.625",
+    "operating_point": "model alone at t*=0.772",
     "frame_confusion": {
-      "TP": 2007,
-      "FN": 150,
-      "FP": 3,
-      "TN": 410
+      "TP": 1967,
+      "FN": 190,
+      "FP": 0,
+      "TN": 413
     },
-    "frame_recall": 0.930459,
-    "frame_fpr": 0.007264,
-    "cost_per_1000": 4705.119095
+    "frame_recall": 0.911915,
+    "frame_fpr": 0.0,
+    "cost_per_1000": 486.022253
   },
   "coco_zero_shot": {
     "mAP50": 0.0,
@@ -29,7 +29,7 @@
     },
     "frame_recall": 0.0,
     "frame_fpr": 0.0,
-    "cost_per_1000": 50000.0,
+    "cost_per_1000": 5000.0,
     "weights": "yolo11n.pt",
     "coco_has_fire_or_smoke_class": false,
     "logging_conf": 0.25,
@@ -94,7 +94,7 @@
     },
     "frame_recall": 0.0,
     "frame_fpr": 0.0,
-    "cost_per_1000": 50000.0
+    "cost_per_1000": 5000.0
   },
   "majority_class_at_frame_level": "positive",
   "always_alarm": {
@@ -108,6 +108,6 @@
     },
     "frame_recall": 1.0,
     "frame_fpr": 1.0,
-    "cost_per_1000": 150000.0
+    "cost_per_1000": 500000.0
   }
 }
