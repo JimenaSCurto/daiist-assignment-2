@@ -146,12 +146,4 @@ Furthermore, the base rate is assumed and not measured, and it is what decides b
 
 Finally, there is the issue of privacy. Cameras in care homes process images of residents and are subject to the GDPR and the Spanish LOPDGDD, so I would restrict cameras to common areas, show operators only the flagged stills, keep passed frames for a short time only, and complete a data protection impact assessment before deployment.
 
-## Generative AI use disclosure
 
-I used Claude (the Claude Code agent from Anthropic, model Claude Opus 5.5) throughout this assignment, following the instruction of our teacher to use AI to build the work and then study it until I understand every part.
-
-Regarding the code, Claude wrote the training and evaluation pipeline (`train.py`), the Gradio dashboard (`app.py`), the source audit that measures leakage and how well the file name predicts the label, the source-grouped re-split with same-source negative crops that removes both, and a Colab notebook for training on a GPU (kept locally and not part of the submission). Claude also found and fixed a scoring error in an earlier run, where 78 positive test frames had been scored 0.0.
-
-In terms of analysis and writing, Claude helped me choose the business setting and the cost figures (I had chosen the €50,000 and the three-outcome design, while the €500 false alarm cost and the 0.0001 base rate were revised with Claude). I wrote the business problem and dataset sections myself, and Claude drafted the remaining sections, rewrote them to match my style and updated the numbers in all sections to the final run.
-
-My role was to choose the problem area and the dataset, train the model in Colab, and review and study every section of this report and every number in it.
